@@ -1,0 +1,3 @@
+#!/usr/bin/python
+from corenlp import *
+corenlp = StanfordCoreNLP()  # wait a few minutes...
