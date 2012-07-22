@@ -3,6 +3,7 @@ import web
 import gv
 import ast
 import re
+import urllib2
 
 urls = ('/', 'index')
 render = web.template.render('templates/')
@@ -27,7 +28,7 @@ class index:
         return toReturn
     
     
-    def matchPOS(self, pos, parseTree):
+    def matchPOS(self, pos, parseTree, mode="Normal"):
         all = []
         lenMax = 0
         textMax = ""
@@ -47,6 +48,10 @@ class index:
             all.append(keep)
             
         for item in all:
+            if (mode == "NP"):
+                print item
+                if (item.find("VP")>-1):
+                    continue
             if lenMax<len(item):
                 lenMax = len(item)
                 textMax = item
@@ -62,11 +67,10 @@ class index:
             QW = index.matchPOS(self, "W.*", parseTree)
             Q = index.extractWord(self,QW)
             
-            
-            NP = index.matchPOS(self, "NP", parseTree)
+            NP = index.matchPOS(self, "NP", parseTree, "NP")
             N = index.extractWord(self,NP)
             
-            VBN = index.matchPOS(self, "VBN", parseTree)
+            VBN = index.matchPOS(self, "V.*", parseTree)
             V = index.extractWord(self,VBN)
         return Q,N,V
     
@@ -79,7 +83,35 @@ class index:
         question = data["question"]
         parsed = ast.literal_eval(gv.corenlp.parse(question))
         Q,N,V = index.extractAnswer(self, parsed)
-        return "<html>"+question+"<br>"+str((Q,N,V))+"</html>"
+        
+        url="http://lookup.dbpedia.org/api/search.asmx/KeywordSearch?QueryClass=place&QueryString="+N.replace(" ","%20")
+        req = urllib2.Request(url)
+        response = urllib2.urlopen(req)
+        fetch = response.read()
+        print fetch
+        answerText = "<ul>"
+        answers = re.findall("<Description>(.+)</Description>",fetch)
+        for answer in answers:
+            answerText+="<li>"+answer+"</li>"
+        answerText += "</ul>"
+        
+        #=======================================================================
+        # url="https://d5gate.ag5.mpi-sb.mpg.de/webyagospotlx/Browser?entity="+N.replace(" ","_")
+        # print url
+        # req = urllib2.Request(url)
+        # response = urllib2.urlopen(req)
+        # fetch = response.read()
+        # print fetch
+        # answers = re.findall("(&nbsp;&nbsp;(.+)&nbsp;&nbsp;|/webyagospotlx/Browser\?entity=([^>]+)\>)",fetch)
+        # for (a,b,c) in answers:
+        #    if c =='':
+        #        answerText+="<br><b>"+b+"</b>: "
+        #    else:
+        #        answerText+=c+","
+        # answerText+="<br>"
+        #=======================================================================
+        
+        return "<html>"+question+"<br>"+str((Q,N,V))+"<br>"+str(answerText)+"</html>"
     
 if __name__ == "__main__":
     app = web.application(urls, globals())
